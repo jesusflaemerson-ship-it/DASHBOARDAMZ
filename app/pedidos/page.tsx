@@ -198,7 +198,7 @@ export default function PedidosPage() {
     XLSX.writeFile(wb, "controle-geral-export.xlsx");
   }
 
-
+  const filtered = orders.filter(
     (o) =>
       o.pedido.toLowerCase().includes(search.toLowerCase()) ||
       o.produto.toLowerCase().includes(search.toLowerCase())
