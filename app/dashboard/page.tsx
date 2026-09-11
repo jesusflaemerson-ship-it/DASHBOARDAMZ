@@ -54,3 +54,48 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-4 gap-3">
           {kpis.map((k) => (
             <div key={k.label} className={`card ${toneGlow[k.tone]} transition-shadow hover:shadow-[0_0_0_1px_rgba(109,91,255,0.25)]`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-dim">{k.label}</div>
+                {k.trend && (
+                  <span className={`text-xs ${k.trend === "up" ? "text-good" : "text-bad"}`}>
+                    {k.trend === "up" ? "▲" : "▼"}
+                  </span>
+                )}
+              </div>
+              <div className={`text-3xl font-bold mono tracking-tight ${toneClass[k.tone]}`}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <h2 className="text-sm font-semibold mt-8 mb-3">Pedidos com prejuízo</h2>
+        <div className="card p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-elev2 text-faint text-xs uppercase">
+              <tr>
+                <th className="text-left p-3">Data</th>
+                <th className="text-left p-3">Pedido</th>
+                <th className="text-left p-3">Produto</th>
+                <th className="text-left p-3">Venda</th>
+                <th className="text-left p-3">Lucro Final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comPrejuizo.length === 0 && (
+                <tr><td colSpan={5} className="p-6 text-center text-faint">Nenhum pedido com prejuízo 🎉</td></tr>
+              )}
+              {comPrejuizo.map((o) => (
+                <tr key={o.id} className="border-t border-bordersoft">
+                  <td className="p-3">{o.data}</td>
+                  <td className="p-3 mono">{o.pedido}</td>
+                  <td className="p-3">{o.produto}</td>
+                  <td className="p-3 mono">{fmt(Number(o.venda_bruta))}</td>
+                  <td className="p-3 mono neg font-semibold">{fmt(calc(o).lucroFinal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
