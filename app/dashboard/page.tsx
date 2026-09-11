@@ -1,80 +1,84 @@
-import Sidebar from "@/components/Sidebar";
-import { createClient } from "@/lib/supabase/server";
-import { calc, fmt } from "@/lib/calc";
+"use client";
 
-export default async function DashboardPage() {
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import Logo from "@/components/Logo";
+
+export default function LoginPage() {
+  const router = useRouter();
   const supabase = createClient();
-  const { data: orders } = await supabase
-    .from("orders")
-    .select("*")
-    .order("data", { ascending: false });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const list = orders || [];
-  const faturamento = list.reduce((a, o) => a + Number(o.venda_bruta), 0);
-  const lucroTotal = list.reduce((a, o) => a + calc(o).lucroFinal, 0);
-  const margem = faturamento ? (lucroTotal / faturamento) * 100 : 0;
-  const totalRecebido = list.filter((o) => o.status === "Pago").reduce((a, o) => a + Number(o.venda_bruta), 0);
-  const totalPendente = list.filter((o) => o.status === "Pendente").reduce((a, o) => a + Number(o.venda_bruta), 0);
-  const taxaMedia = faturamento
-    ? (list.reduce((a, o) => a + Number(o.taxas_amazon), 0) / faturamento) * 100
-    : 0;
-  const comPrejuizo = list.filter((o) => calc(o).lucroFinal < 0);
-
-  const kpis = [
-    { label: "Faturamento bruto", value: fmt(faturamento) },
-    { label: "Lucro total", value: fmt(lucroTotal) },
-    { label: "Margem média", value: margem.toFixed(1) + "%" },
-    { label: "Total de pedidos", value: String(list.length) },
-    { label: "Total recebido", value: fmt(totalRecebido) },
-    { label: "Total pendente", value: fmt(totalPendente) },
-    { label: "Taxa média Amazon", value: taxaMedia.toFixed(1) + "%" },
-    { label: "Pedidos com prejuízo", value: String(comPrejuizo.length) },
-  ];
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Erro ao autenticar");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex-1 p-8">
-        <h1 className="text-xl font-semibold mb-1">Dashboard</h1>
-        <p className="text-dim text-sm mb-6">Visão geral da operação</p>
-
-        <div className="grid grid-cols-4 gap-3">
-          {kpis.map((k) => (
-            <div key={k.label} className="card">
-              <div className="text-xs text-dim mb-2">{k.label}</div>
-              <div className="text-2xl font-semibold mono">{k.value}</div>
-            </div>
-          ))}
+    <div className="min-h-screen flex items-center justify-center bg-bg">
+      <div className="card w-full max-w-sm">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-7 h-7 rounded-lg overflow-hidden">
+            <Logo size={28} />
+          </div>
+          <div>
+            <div className="font-semibold">Operacional</div>
+            <div className="text-xs text-faint">Amazon · Shopee</div>
+          </div>
         </div>
-
-        <h2 className="text-sm font-semibold mt-8 mb-3">Pedidos com prejuízo</h2>
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-elev2 text-faint text-xs uppercase">
-              <tr>
-                <th className="text-left p-3">Data</th>
-                <th className="text-left p-3">Pedido</th>
-                <th className="text-left p-3">Produto</th>
-                <th className="text-left p-3">Venda</th>
-                <th className="text-left p-3">Lucro Final</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comPrejuizo.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-faint">Nenhum pedido com prejuízo 🎉</td></tr>
-              )}
-              {comPrejuizo.map((o) => (
-                <tr key={o.id} className="border-t border-bordersoft">
-                  <td className="p-3">{o.data}</td>
-                  <td className="p-3 mono">{o.pedido}</td>
-                  <td className="p-3">{o.produto}</td>
-                  <td className="p-3 mono">{fmt(Number(o.venda_bruta))}</td>
-                  <td className="p-3 mono neg">{fmt(calc(o).lucroFinal)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <h1 className="text-lg font-semibold mb-4">
+          {mode === "login" ? "Entrar" : "Criar conta"}
+        </h1>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            className="input"
+            type="email"
+            placeholder="seu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className="input"
+            type="password"
+            placeholder="Senha"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+          />
+          {error && <p className="text-bad text-xs">{error}</p>}
+          <button className="btn w-full" disabled={loading}>
+            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+          </button>
+        </form>
+        <button
+          className="text-xs text-dim mt-4 hover:text-text"
+          onClick={() => setMode(mode === "login" ? "signup" : "login")}
+        >
+          {mode === "login" ? "Não tem conta? Criar agora" : "Já tem conta? Entrar"}
+        </button>
       </div>
     </div>
   );
