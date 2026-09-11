@@ -1,85 +1,56 @@
-"use client";
+import Sidebar from "@/components/Sidebar";
+import { createClient } from "@/lib/supabase/server";
+import { calc, fmt } from "@/lib/calc";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import Logo from "@/components/Logo";
-
-export default function LoginPage() {
-  const router = useRouter();
+export default async function DashboardPage() {
   const supabase = createClient();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("*")
+    .order("data", { ascending: false });
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-      }
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Erro ao autenticar");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const list = orders || [];
+  const faturamento = list.reduce((a, o) => a + Number(o.venda_bruta), 0);
+  const lucroTotal = list.reduce((a, o) => a + calc(o).lucroFinal, 0);
+  const margem = faturamento ? (lucroTotal / faturamento) * 100 : 0;
+  const totalRecebido = list.filter((o) => o.status === "Pago").reduce((a, o) => a + Number(o.venda_bruta), 0);
+  const totalPendente = list.filter((o) => o.status === "Pendente").reduce((a, o) => a + Number(o.venda_bruta), 0);
+  const taxaMedia = faturamento
+    ? (list.reduce((a, o) => a + Number(o.taxas_amazon), 0) / faturamento) * 100
+    : 0;
+  const comPrejuizo = list.filter((o) => calc(o).lucroFinal < 0);
+
+  type Tone = "good" | "bad" | "neutral";
+  const kpis: { label: string; value: string; tone: Tone; trend?: "up" | "down" }[] = [
+    { label: "Faturamento bruto", value: fmt(faturamento), tone: "neutral" },
+    { label: "Lucro total", value: fmt(lucroTotal), tone: lucroTotal >= 0 ? "good" : "bad", trend: lucroTotal >= 0 ? "up" : "down" },
+    { label: "Margem média", value: margem.toFixed(1) + "%", tone: margem >= 0 ? "good" : "bad", trend: margem >= 0 ? "up" : "down" },
+    { label: "Total de pedidos", value: String(list.length), tone: "neutral" },
+    { label: "Total recebido", value: fmt(totalRecebido), tone: "good" },
+    { label: "Total pendente", value: fmt(totalPendente), tone: totalPendente > 0 ? "bad" : "neutral" },
+    { label: "Taxa média Amazon", value: taxaMedia.toFixed(1) + "%", tone: "neutral" },
+    { label: "Pedidos com prejuízo", value: String(comPrejuizo.length), tone: comPrejuizo.length > 0 ? "bad" : "good" },
+  ];
+
+  const toneClass: Record<Tone, string> = {
+    good: "text-good",
+    bad: "text-bad",
+    neutral: "text-text",
+  };
+
+  const toneGlow: Record<Tone, string> = {
+    good: "shadow-[0_0_0_1px_rgba(51,214,159,0.15)]",
+    bad: "shadow-[0_0_0_1px_rgba(255,92,114,0.15)]",
+    neutral: "",
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg">
-      <div className="card w-full max-w-sm">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-7 h-7 rounded-lg overflow-hidden">
-            <Logo size={28} />
-          </div>
-          <div>
-            <div className="font-semibold">Operacional</div>
-            <div className="text-xs text-faint">Amazon · Shopee</div>
-          </div>
-        </div>
-        <h1 className="text-lg font-semibold mb-4">
-          {mode === "login" ? "Entrar" : "Criar conta"}
-        </h1>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            className="input"
-            type="email"
-            placeholder="seu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="input"
-            type="password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-          {error && <p className="text-bad text-xs">{error}</p>}
-          <button className="btn w-full" disabled={loading}>
-            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
-          </button>
-        </form>
-        <button
-          className="text-xs text-dim mt-4 hover:text-text"
-          onClick={() => setMode(mode === "login" ? "signup" : "login")}
-        >
-          {mode === "login" ? "Não tem conta? Criar agora" : "Já tem conta? Entrar"}
-        </button>
-      </div>
-    </div>
-  );
-}
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex-1 p-8">
+        <h1 className="text-xl font-semibold mb-1">Dashboard</h1>
+        <p className="text-dim text-sm mb-6">Visão geral da operação</p>
+
+        <div className="grid grid-cols-4 gap-3">
+          {kpis.map((k) => (
+            <div key={k.label} className={`card ${toneGlow[k.tone]} transition-shadow hover:shadow-[0_0_0_1px_rgba(109,91,255,0.25)]`}>
