@@ -97,23 +97,22 @@ export default function DashboardClient({ orders }: { orders: Order[] }) {
   }, [filtered]);
 
   return (
-    <>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold mb-1">Dashboard</h1>
-          <p className="text-dim text-sm">Visão geral da operação</p>
-        </div>
-        <select
-          className="input w-auto text-xs py-1.5 px-2"
-          value={period}
-          onChange={(e) => setPeriod(e.target.value as Period)}
-        >
-          {periodOrder.map((p) => (
-            <option key={p} value={p}>
-              {periodLabels[p]}
-            </option>
-          ))}
-        </select>
+    <div className="relative">
+      <select
+        className="absolute top-0 right-0 bg-elev2 border border-border text-faint text-[11px] py-1 px-2 rounded-md w-auto"
+        value={period}
+        onChange={(e) => setPeriod(e.target.value as Period)}
+      >
+        {periodOrder.map((p) => (
+          <option key={p} value={p}>
+            {periodLabels[p]}
+          </option>
+        ))}
+      </select>
+
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold mb-1">Dashboard</h1>
+        <p className="text-dim text-sm">Visão geral da operação</p>
       </div>
 
       <div className="grid grid-cols-4 gap-3">
@@ -199,6 +198,6 @@ export default function DashboardClient({ orders }: { orders: Order[] }) {
           </tbody>
         </table>
       </div>
-    </>
+    </div>
   );
 }
