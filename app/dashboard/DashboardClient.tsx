@@ -15,10 +15,13 @@ import { calc, fmt, type Order } from "@/lib/calc";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
-type Period = "hoje" | "7" | "30" | "all";
+type Period = "hoje" | "ontem" | "7" | "30" | "all";
+
+const periodOrder: Period[] = ["hoje", "ontem", "7", "30", "all"];
 
 const periodLabels: Record<Period, string> = {
   hoje: "Hoje",
+  ontem: "Ontem",
   "7": "Últimos 7 dias",
   "30": "Últimos 30 dias",
   all: "Tudo",
@@ -31,6 +34,12 @@ function filterByPeriod(orders: Order[], period: Period) {
   if (period === "hoje") {
     const todayStr = today.toISOString().slice(0, 10);
     return orders.filter((o) => o.data === todayStr);
+  }
+  if (period === "ontem") {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    return orders.filter((o) => o.data === yesterdayStr);
   }
   const days = period === "7" ? 7 : 30;
   const cutoff = new Date(today);
@@ -95,11 +104,11 @@ export default function DashboardClient({ orders }: { orders: Order[] }) {
           <p className="text-dim text-sm">Visão geral da operação</p>
         </div>
         <select
-          className="input w-auto"
+          className="input w-auto text-xs py-1.5 px-2"
           value={period}
           onChange={(e) => setPeriod(e.target.value as Period)}
         >
-          {(Object.keys(periodLabels) as Period[]).map((p) => (
+          {periodOrder.map((p) => (
             <option key={p} value={p}>
               {periodLabels[p]}
             </option>
