@@ -1,82 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Logo from "./Logo";
 
-export default function LoginPage() {
+const items = [
+  { href: "/dashboard", label: "Dashboard", icon: "◆" },
+  { href: "/pedidos", label: "Pedidos", icon: "▤" },
+  { href: "/financeiro", label: "Financeiro", icon: "$" },
+  { href: "/reembolsos", label: "Reembolsos", icon: "↺" },
+  { href: "/estoque", label: "Estoque", icon: "▣" },
+];
+
+export default function Sidebar() {
+  const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-      }
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Erro ao autenticar");
-    } finally {
-      setLoading(false);
-    }
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg">
-      <div className="card w-full max-w-sm">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent to-good" />
-          <div>
-            <div className="font-semibold">Operacional</div>
-            <div className="text-xs text-faint">Amazon · Shopee</div>
-          </div>
+    <div className="w-[220px] shrink-0 bg-elev border-r border-bordersoft p-3 flex flex-col gap-1 min-h-screen">
+      <div className="flex items-center gap-2 px-2 pb-5 pt-2">
+        <div className="w-[26px] h-[26px] rounded-md overflow-hidden">
+          <Logo size={26} />
         </div>
-        <h1 className="text-lg font-semibold mb-4">
-          {mode === "login" ? "Entrar" : "Criar conta"}
-        </h1>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            className="input"
-            type="email"
-            placeholder="seu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="input"
-            type="password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-          {error && <p className="text-bad text-xs">{error}</p>}
-          <button className="btn w-full" disabled={loading}>
-            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
-          </button>
-        </form>
-        <button
-          className="text-xs text-dim mt-4 hover:text-text"
-          onClick={() => setMode(mode === "login" ? "signup" : "login")}
-        >
-          {mode === "login" ? "Não tem conta? Criar agora" : "Já tem conta? Entrar"}
-        </button>
+        <div>
+          <div className="font-semibold text-sm">Operacional</div>
+          <div className="text-[11px] text-faint">Amazon · Shopee</div>
+        </div>
       </div>
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[13.5px] ${
+            pathname === item.href ? "bg-accent/15 text-accent" : "text-dim hover:bg-elev2 hover:text-text"
+          }`}
+        >
+          <span className="w-4 text-center">{item.icon}</span>
+          {item.label}
+        </Link>
+      ))}
+      <div className="flex-1" />
+      <button
+        onClick={handleLogout}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-faint hover:bg-elev2 hover:text-text"
+      >
+        <span className="w-4 text-center">⎋</span> Sair
+      </button>
     </div>
   );
 }
