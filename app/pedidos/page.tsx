@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import Sidebar from "@/components/Sidebar";
 import { createClient } from "@/lib/supabase/client";
 import { calc, fmt, type Order } from "@/lib/calc";
@@ -25,6 +26,9 @@ export default function PedidosPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
@@ -95,7 +99,106 @@ export default function PedidosPage() {
     load();
   }
 
-  const filtered = orders.filter(
+  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportMsg("");
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+      const sheetName = wb.SheetNames.find((n) => /controle|pedido|geral/i.test(n)) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+      const existingKeys = new Set(orders.map((o) => `${o.pedido}|${o.data}`));
+      const toInsert: any[] = [];
+      let skipped = 0;
+
+      for (const r of rows) {
+        const pedido = String(r["Pedido"] || r["Número do pedido"] || "").trim();
+        const produto = String(r["Produto"] || "").trim();
+        if (!pedido && !produto) continue;
+
+        let dataStr = "";
+        const dataVal = r["Data"];
+        if (dataVal instanceof Date) {
+          dataStr = dataVal.toISOString().slice(0, 10);
+        } else if (typeof dataVal === "number") {
+          const d = XLSX.SSF.parse_date_code(dataVal);
+          dataStr = `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+        } else if (dataVal) {
+          dataStr = String(dataVal);
+        }
+        if (!dataStr) dataStr = new Date().toISOString().slice(0, 10);
+
+        const key = `${pedido}|${dataStr}`;
+        if (existingKeys.has(key)) {
+          skipped++;
+          continue;
+        }
+        existingKeys.add(key);
+
+        const taxas = parseFloat(
+          r["Taxas Amazon (R$)"] || r["Taxas Amazon"] || r["Taxa Amazon (R$)"] || r["Taxas"] || r["taxas"]
+        ) || 0;
+
+        toInsert.push({
+          data: dataStr,
+          pedido,
+          produto,
+          venda_bruta: parseFloat(r["Venda Bruta"]) || 0,
+          custo: parseFloat(r["custo"] || r["Custo"]) || 0,
+          taxas_amazon: taxas,
+          status: r["Status"] || "Pendente",
+          conta: r["conta shopee"] || r["Conta"] || "",
+          observacoes: "",
+          user_id: userData.user?.id,
+        });
+      }
+
+      if (toInsert.length > 0) {
+        const { error } = await supabase.from("orders").insert(toInsert);
+        if (error) throw error;
+      }
+
+      setImportMsg(`Importado: ${toInsert.length} pedido(s) (${skipped} duplicado(s) ignorado(s))`);
+      load();
+    } catch (err: any) {
+      setImportMsg("Erro ao importar: " + (err.message || "verifique o formato do arquivo"));
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function handleExportExcel() {
+    const rows = orders.map((o) => {
+      const c = calc(o);
+      return {
+        Data: o.data,
+        Pedido: o.pedido,
+        Produto: o.produto,
+        "Venda Bruta": o.venda_bruta,
+        custo: o.custo,
+        "Taxas Amazon (R$)": o.taxas_amazon,
+        "Taxa Amazon (%)": Number(c.taxaPercent.toFixed(2)),
+        "Lucro Caixa": c.lucroCaixa,
+        "Amazon Vai Pagar": c.amazonVaiPagar,
+        "Lucro Final": c.lucroFinal,
+        Status: o.status,
+        "conta shopee": o.conta,
+        Observações: o.observacoes,
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Controle Geral");
+    XLSX.writeFile(wb, "controle-geral-export.xlsx");
+  }
+
+
     (o) =>
       o.pedido.toLowerCase().includes(search.toLowerCase()) ||
       o.produto.toLowerCase().includes(search.toLowerCase())
@@ -115,8 +218,29 @@ export default function PedidosPage() {
             <h1 className="text-xl font-semibold">Pedidos</h1>
             <p className="text-dim text-sm">Gestão completa de pedidos</p>
           </div>
-          <button className="btn" onClick={openNew}>+ Novo pedido</button>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              ref={fileInputRef}
+              onChange={handleImportExcel}
+              style={{ display: "none" }}
+            />
+            <button
+              className="px-4 py-2 rounded-lg text-sm bg-elev2 border border-border"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+            >
+              {importing ? "Importando..." : "⇧ Importar Excel"}
+            </button>
+            <button className="px-4 py-2 rounded-lg text-sm bg-elev2 border border-border" onClick={handleExportExcel}>
+              ⇩ Exportar Excel
+            </button>
+            <button className="btn" onClick={openNew}>+ Novo pedido</button>
+          </div>
         </div>
+
+        {importMsg && <p className="text-xs text-dim mb-3">{importMsg}</p>}
 
         <input
           className="input max-w-xs mb-4"
