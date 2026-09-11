@@ -1,21 +1,101 @@
-export default function Logo({ size = 26 }: { size?: number }) {
+import Sidebar from "@/components/Sidebar";
+import { createClient } from "@/lib/supabase/server";
+import { calc, fmt } from "@/lib/calc";
+
+export default async function DashboardPage() {
+  const supabase = createClient();
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("*")
+    .order("data", { ascending: false });
+
+  const list = orders || [];
+  const faturamento = list.reduce((a, o) => a + Number(o.venda_bruta), 0);
+  const lucroTotal = list.reduce((a, o) => a + calc(o).lucroFinal, 0);
+  const margem = faturamento ? (lucroTotal / faturamento) * 100 : 0;
+  const totalRecebido = list.filter((o) => o.status === "Pago").reduce((a, o) => a + Number(o.venda_bruta), 0);
+  const totalPendente = list.filter((o) => o.status === "Pendente").reduce((a, o) => a + Number(o.venda_bruta), 0);
+  const taxaMedia = faturamento
+    ? (list.reduce((a, o) => a + Number(o.taxas_amazon), 0) / faturamento) * 100
+    : 0;
+  const comPrejuizo = list.filter((o) => calc(o).lucroFinal < 0);
+
+  type Tone = "good" | "bad" | "neutral";
+  const kpis: { label: string; value: string; tone: Tone; trend?: "up" | "down" }[] = [
+    { label: "Faturamento bruto", value: fmt(faturamento), tone: "neutral" },
+    { label: "Lucro total", value: fmt(lucroTotal), tone: lucroTotal >= 0 ? "good" : "bad", trend: lucroTotal >= 0 ? "up" : "down" },
+    { label: "Margem média", value: margem.toFixed(1) + "%", tone: margem >= 0 ? "good" : "bad", trend: margem >= 0 ? "up" : "down" },
+    { label: "Total de pedidos", value: String(list.length), tone: "neutral" },
+    { label: "Total recebido", value: fmt(totalRecebido), tone: "good" },
+    { label: "Total pendente", value: fmt(totalPendente), tone: totalPendente > 0 ? "bad" : "neutral" },
+    { label: "Taxa média Amazon", value: taxaMedia.toFixed(1) + "%", tone: "neutral" },
+    { label: "Pedidos com prejuízo", value: String(comPrejuizo.length), tone: comPrejuizo.length > 0 ? "bad" : "good" },
+  ];
+
+  const toneClass: Record<Tone, string> = {
+    good: "text-good",
+    bad: "text-bad",
+    neutral: "text-text",
+  };
+
+  const toneGlow: Record<Tone, string> = {
+    good: "shadow-[0_0_0_1px_rgba(51,214,159,0.15)]",
+    bad: "shadow-[0_0_0_1px_rgba(255,92,114,0.15)]",
+    neutral: "",
+  };
+
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#6d5bff" />
-          <stop offset="1" stopColor="#33d69f" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="8" fill="url(#logoGrad)" />
-      <path
-        d="M9 20.5L14.2 15.3L18 19.1L23 14.1"
-        stroke="white"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M18.5 14H23V18.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex-1 p-8">
+        <h1 className="text-xl font-semibold mb-1">Dashboard</h1>
+        <p className="text-dim text-sm mb-6">Visão geral da operação</p>
+
+        <div className="grid grid-cols-4 gap-3">
+          {kpis.map((k) => (
+            <div key={k.label} className={`card ${toneGlow[k.tone]} transition-shadow hover:shadow-[0_0_0_1px_rgba(109,91,255,0.25)]`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-dim">{k.label}</div>
+                {k.trend && (
+                  <span className={`text-xs ${k.trend === "up" ? "text-good" : "text-bad"}`}>
+                    {k.trend === "up" ? "▲" : "▼"}
+                  </span>
+                )}
+              </div>
+              <div className={`text-3xl font-bold mono tracking-tight ${toneClass[k.tone]}`}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <h2 className="text-sm font-semibold mt-8 mb-3">Pedidos com prejuízo</h2>
+        <div className="card p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-elev2 text-faint text-xs uppercase">
+              <tr>
+                <th className="text-left p-3">Data</th>
+                <th className="text-left p-3">Pedido</th>
+                <th className="text-left p-3">Produto</th>
+                <th className="text-left p-3">Venda</th>
+                <th className="text-left p-3">Lucro Final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comPrejuizo.length === 0 && (
+                <tr><td colSpan={5} className="p-6 text-center text-faint">Nenhum pedido com prejuízo 🎉</td></tr>
+              )}
+              {comPrejuizo.map((o) => (
+                <tr key={o.id} className="border-t border-bordersoft">
+                  <td className="p-3">{o.data}</td>
+                  <td className="p-3 mono">{o.pedido}</td>
+                  <td className="p-3">{o.produto}</td>
+                  <td className="p-3 mono">{fmt(Number(o.venda_bruta))}</td>
+                  <td className="p-3 mono neg font-semibold">{fmt(calc(o).lucroFinal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
