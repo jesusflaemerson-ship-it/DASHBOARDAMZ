@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #0a0b0f;
+  color: #e9ebf1;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #2a2e38; border-radius: 4px; }
+
+.card {
+  background: #101218;
+  border: 1px solid #1a1d26;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.btn {
+  background: #6d5bff;
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.btn:hover { background: #5c4bef; }
+
+.input {
+  background: #161923;
+  border: 1px solid #22262f;
+  color: #e9ebf1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+.input:focus { border-color: #6d5bff; }
+
+.mono { font-family: "SF Mono", "JetBrains Mono", Menlo, monospace; }
+.pos { color: #33d69f; }
+.neg { color: #ff5c72; }
