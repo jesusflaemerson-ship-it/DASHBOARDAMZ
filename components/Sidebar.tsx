@@ -11,6 +11,7 @@ const items = [
   { href: "/financeiro", label: "Financeiro", icon: "$" },
   { href: "/reembolsos", label: "Reembolsos", icon: "↺" },
   { href: "/estoque", label: "Estoque", icon: "▣" },
+  { href: "/ia", label: "IA", icon: "✦" },
 ];
 
 export default function Sidebar() {
