@@ -48,7 +48,7 @@ function filterByPeriod(orders: Order[], period: Period) {
 }
 
 export default function DashboardClient({ orders }: { orders: Order[] }) {
-  const [period, setPeriod] = useState<Period>("30");
+  const [period, setPeriod] = useState<Period>("hoje");
   const filtered = useMemo(() => filterByPeriod(orders, period), [orders, period]);
 
   const faturamento = filtered.reduce((a, o) => a + Number(o.venda_bruta), 0);
@@ -99,12 +99,13 @@ export default function DashboardClient({ orders }: { orders: Order[] }) {
   return (
     <div className="relative">
       <select
-        className="absolute top-0 right-0 bg-elev2 border border-border text-faint text-[11px] py-1 px-2 rounded-md w-auto"
+        className="absolute top-0 right-0 bg-elev2 border border-border text-xs font-semibold py-1.5 px-2.5 rounded-md w-auto"
+        style={{ color: "#ffffff" }}
         value={period}
         onChange={(e) => setPeriod(e.target.value as Period)}
       >
         {periodOrder.map((p) => (
-          <option key={p} value={p}>
+          <option key={p} value={p} style={{ color: "#ffffff", background: "#161923" }}>
             {periodLabels[p]}
           </option>
         ))}
