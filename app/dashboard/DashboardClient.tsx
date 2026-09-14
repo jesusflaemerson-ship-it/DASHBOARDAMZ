@@ -54,7 +54,7 @@ export default function DashboardClient({ orders }: { orders: Order[] }) {
   const faturamento = filtered.reduce((a, o) => a + Number(o.venda_bruta), 0);
   const lucroTotal = filtered.reduce((a, o) => a + calc(o).lucroFinal, 0);
   const margem = faturamento ? (lucroTotal / faturamento) * 100 : 0;
-  const totalRecebido = filtered.filter((o) => o.status === "Pago").reduce((a, o) => a + Number(o.venda_bruta), 0);
+  const custoTotal = filtered.reduce((a, o) => a + Number(o.custo), 0);
   const totalPendente = filtered.filter((o) => o.status === "Pendente").reduce((a, o) => a + Number(o.venda_bruta), 0);
   const taxaMedia = faturamento
     ? (filtered.reduce((a, o) => a + Number(o.taxas_amazon), 0) / faturamento) * 100
@@ -64,10 +64,10 @@ export default function DashboardClient({ orders }: { orders: Order[] }) {
   type Tone = "good" | "bad" | "neutral";
   const kpis: { label: string; value: string; tone: Tone; trend?: "up" | "down" }[] = [
     { label: "Faturamento bruto", value: fmt(faturamento), tone: "neutral" },
-    { label: "Lucro total", value: fmt(lucroTotal), tone: lucroTotal >= 0 ? "good" : "bad", trend: lucroTotal >= 0 ? "up" : "down" },
+    { label: "Lucro líquido", value: fmt(lucroTotal), tone: lucroTotal >= 0 ? "good" : "bad", trend: lucroTotal >= 0 ? "up" : "down" },
     { label: "Margem média", value: margem.toFixed(1) + "%", tone: margem >= 0 ? "good" : "bad", trend: margem >= 0 ? "up" : "down" },
     { label: "Total de pedidos", value: String(filtered.length), tone: "neutral" },
-    { label: "Total recebido", value: fmt(totalRecebido), tone: "good" },
+    { label: "Custo Shopee", value: fmt(custoTotal), tone: "neutral" },
     { label: "Total pendente", value: fmt(totalPendente), tone: totalPendente > 0 ? "bad" : "neutral" },
     { label: "Taxa média Amazon", value: taxaMedia.toFixed(1) + "%", tone: "neutral" },
     { label: "Pedidos com prejuízo", value: String(comPrejuizo.length), tone: comPrejuizo.length > 0 ? "bad" : "good" },
